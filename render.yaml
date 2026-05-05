@@ -2,7 +2,6 @@ services:
   - type: worker
     name: link-dedup-bot
     runtime: python
-    pythonVersion: "3.12"
     buildCommand: pip install -r requirements.txt
     startCommand: python link_dedup_bot.py
     envVars:
