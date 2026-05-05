@@ -1,16 +1,5 @@
 """
 Link Dedup & Batcher — Telegram Bot
-====================================
-HTML tool এর exact same logic, Python এ port করা।
-
-Usage:
-  pip install python-telegram-bot
-  BOT_TOKEN=xxx python link_dedup_bot.py
-
-Commands:
-  /start  — welcome message
-  /help   — instructions
-  (any text with links) → dedup + batch করে reply দেবে
 """
 
 import re
@@ -31,43 +20,28 @@ logging.basicConfig(
     level=logging.INFO,
 )
 
-BOT_TOKEN = os.environ["BOT_TOKEN"]  # Render dashboard এ set করো
-BATCH_SIZE = 5  # প্রতিটা batch এ কতটা link
+BOT_TOKEN = os.environ["BOT_TOKEN"]
+BATCH_SIZE = 5
 
-
-# ──────────────────────────────────────────────
-# Core logic  (HTML tool এর JS থেকে port করা)
-# ──────────────────────────────────────────────
 
 def extract_links(text: str) -> list[str]:
-    """Raw text থেকে x.com status links বের করে।"""
-    # bare x.com/... → https://x.com/...
     text = re.sub(r'(?<![/\w])x\.com/', 'https://x.com/', text, flags=re.IGNORECASE)
-
     raw = re.findall(r'https?://x\.com/[^\s\]\[<>"\'()]+', text, re.IGNORECASE)
-
     results = []
     for u in raw:
         u = re.sub(r'[.,;!?]+$', '', u).strip()
-        # Remove query params after status ID
         u = re.sub(r'(/status/\d+)\?[^\s]*', r'\1', u)
-
-        # Format: /i/status/DIGITS
         mi = re.match(r'^(https?://x\.com/i/status/(\d+))', u)
         if mi:
             results.append(f"https://x.com/i/status/{mi.group(2)[:19]}")
             continue
-
-        # Format: /USER/status/DIGITS
         m = re.match(r'^https?://x\.com/([A-Za-z0-9_.\-]+)/status/(\d+)', u)
         if m:
             results.append(f"https://x.com/{m.group(1)}/status/{m.group(2)[:19]}")
-
     return results
 
 
 def dedup(links: list[str]) -> list[str]:
-    """Status ID দিয়ে deduplicate করে।"""
     seen: dict[str, str] = {}
     for link in links:
         m = re.search(r'/status/(\d+)', link, re.IGNORECASE)
@@ -90,31 +64,30 @@ def process(text: str) -> dict:
     }
 
 
-# ──────────────────────────────────────────────
-# Telegram handlers
-# ──────────────────────────────────────────────
+def mdv2_escape(s: str) -> str:
+    return re.sub(r'([_*\[\]()~`>#+\-=|{}.!\\])', r'\\\1', s)
 
-WELCOME = """👋 *Link Dedup & Batcher Bot*
 
-x\.com লিংকগুলো এখানে paste করো ।
-Bot duplicate বাদ দিয়ে ৫টা করে batch করে দেবে।
+WELCOME = (
+    "👋 *Link Dedup & Batcher Bot*\n\n"
+    "x\\.com লিংকগুলো এখানে paste করো \\.\n"
+    "Bot duplicate বাদ দিয়ে ৫টা করে batch করে দেবে।\n\n"
+    "প্রতিটা batch আলাদা message এ আসবে — long\\-press করে copy করো\\!\n\n"
+    "/help — বিস্তারিত"
+)
 
-প্রতিটা batch আলাদা message এ আসবে — long\-press করে copy করো\!
-
-/help — বিস্তারিত"""
-
-HELP = """📖 *কীভাবে ব্যবহার করবে*
-
-১\. যেকোনো text বা links paste করো
-২\. Bot automatically extract, dedup ও batch করবে
-৩\. প্রতিটা batch আলাদা message এ পাবে
-৪\. Message টা long\-press করলে *Copy* option আসবে
-
-*কী কী support করে:*
-• `https://x.com/user/status/ID`
-• `https://x.com/i/status/ID`
-• `x.com/user/status/ID` \(https ছাড়াও\)
-• Mixed text এর মাঝে থাকা links"""
+HELP = (
+    "📖 *কীভাবে ব্যবহার করবে*\n\n"
+    "১\\. যেকোনো text বা links paste করো\n"
+    "২\\. Bot automatically extract, dedup ও batch করবে\n"
+    "৩\\. প্রতিটা batch আলাদা message এ পাবে\n"
+    "৪\\. Message টা long\\-press করলে *Copy* option আসবে\n\n"
+    "*কী কী support করে:*\n"
+    "• `https://x\\.com/user/status/ID`\n"
+    "• `https://x\\.com/i/status/ID`\n"
+    "• `x\\.com/user/status/ID` \\(https ছাড়াও\\)\n"
+    "• Mixed text এর মাঝে থাকা links"
+)
 
 
 async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -142,9 +115,7 @@ async def handle_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     for i, batch in enumerate(result["batches"], start=1):
         lines = "\n".join(batch)
-        header = f"Batch {i}/{len(result['batches'])} \u2014 {len(batch)} link"
-        def mdv2_escape(s):
-            return re.sub(r'([_\*\[\]\(\)~`>#+\-=|{}.!\\])', r'\\\1', s)
+        header = f"Batch {i}/{len(result['batches'])} — {len(batch)} link"
         safe_header = mdv2_escape(header)
         msg = f"{safe_header}\n\n```\n{lines}\n```"
         await update.message.reply_text(msg, parse_mode="MarkdownV2")
@@ -163,10 +134,6 @@ async def handle_reaction(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         except Exception:
             pass
 
-
-# ──────────────────────────────────────────────
-# Main
-# ──────────────────────────────────────────────
 
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
