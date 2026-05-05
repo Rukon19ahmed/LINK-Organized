@@ -4,6 +4,7 @@ Link Dedup & Batcher — Telegram Bot
 
 import re
 import os
+import asyncio
 import logging
 from telegram import Update
 from telegram.ext import (
@@ -135,15 +136,15 @@ async def handle_reaction(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             pass
 
 
-def main():
+async def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("help", cmd_help))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     app.add_handler(MessageReactionHandler(handle_reaction))
     logging.info("Bot চালু হচ্ছে...")
-    app.run_polling(allowed_updates=Update.ALL_TYPES)
+    await app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
