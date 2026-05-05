@@ -1,0 +1,9 @@
+services:
+  - type: worker
+    name: link-dedup-bot
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python link_dedup_bot.py
+    envVars:
+      - key: BOT_TOKEN
+        sync: false   # Render dashboard থেকে manually set করবে
